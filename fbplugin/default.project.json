@@ -1,0 +1,9 @@
+{
+  "name": "FloorBuilder",
+  "tree": {
+    "$path": "src",
+    "result": {
+      "$path": "../modules/shared/result.luau"
+    }
+  }
+}
