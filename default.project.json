@@ -1,0 +1,47 @@
+{
+  "name": "elevator",
+  "tree": {
+    "$className": "DataModel",
+
+    "ReplicatedFirst": {
+      "$path": "init/client"
+    },
+    
+    "ServerScriptService": {
+      "$path": "init/server"
+    },
+
+    "ReplicatedStorage": {
+      "client": {
+        "$className": "Folder",
+        "modules": {
+          "$path": "modules/client"
+        },
+        "assets": {
+          "$path": "assets/client",
+          "$ignoreUnknownInstances": true
+        }
+      },
+      "shared": {
+        "$className": "Folder",
+        "modules": {
+          "$path": "modules/shared"
+        },
+        "assets": {
+          "$path": "assets/shared",
+          "$ignoreUnknownInstances": true
+        }
+      }
+    },
+
+    "ServerStorage": {
+      "modules": {
+        "$path": "modules/server"
+      },
+      "assets": {
+        "$path": "assets/server",
+        "$ignoreUnknownInstances": true
+      }
+    }
+  }
+}
