@@ -130,6 +130,14 @@ return function()
 			expect(values.offset[3]).to.equal(3)
 		end)
 
+		it("keeps only valid collapsed sections", function()
+			local values = settings.sanitize({ collapsed = { tree = true, edit = "yes", view = false, [1] = true } })
+			expect(values.collapsed.tree).to.equal(true)
+			expect(values.collapsed.edit).to.equal(nil)
+			expect(values.collapsed.view).to.equal(nil)
+			expect(next(settings.sanitize({ collapsed = "nope" }).collapsed)).to.equal(nil)
+		end)
+
 		it("keeps recent roots unique and bounded", function()
 			local list = {}
 			for i = 1, 12 do

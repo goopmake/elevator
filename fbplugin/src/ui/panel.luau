@@ -10,6 +10,9 @@
 		Preview     seed, depth, offset, generate / clear, statistics
 		View        live behaviour and visualisation toggles, engine location
 
+	Each section collapses from the arrow in its header, and the state is
+	remembered in the settings. The whole panel scrolls when it does not fit.
+
 	Dynamic lists are rebuilt on every refresh; text inputs are created once
 	and only updated while unfocused, so typing is never interrupted.
 ]]
@@ -78,51 +81,69 @@ local function mount(widget: DockWidgetPluginGui, s: session): panel
 	local m = maidModule.new()
 	local c = theme.panel()
 
-	local content = Instance.new("Frame")
+	local content = Instance.new("ScrollingFrame")
 	content.Name = "Content"
 	content.Size = UDim2.fromScale(1, 1)
 	content.BackgroundColor3 = c.background
 	content.BorderSizePixel = 0
+	content.CanvasSize = UDim2.new(0, 0, 0, 0)
+	content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	content.ScrollingDirection = Enum.ScrollingDirection.Y
+	content.ScrollBarThickness = 8
+	content.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
 	widgets.pad(content, 4)
-	widgets.list(content, false, 4)
+	local contentLayout = widgets.list(content, false, 4)
 	content.Parent = widget
 	m:give(content)
 
 	-- Sections ------------------------------------------------------------------
 
-	local header = widgets.section(content, "Root", c, 1)
+	local function addSection(id: string, title: string, order: number)
+		local collapsed = s.settings.values.collapsed
+		return widgets.section(content, title, c, order, collapsed[id] == true, function(isCollapsed)
+			collapsed[id] = if isCollapsed then true else nil
+			s.settings.save()
+		end)
+	end
+
+	local header = addSection("root", "Root", 1)
 	local headerRow = widgets.row(header, 1)
 	local statusLine = widgets.paragraph(header, "", c, 2)
 	local messageLine = widgets.paragraph(header, "", c, 3, c.dim)
 
-	local treeBox = widgets.scroller(content, 240, c, 2)
-	local details = widgets.section(content, "Details", c, 3)
+	local treeBody, _, setTreeCollapsed = addSection("tree", "Tree", 2)
+	local treeBox = widgets.scroller(treeBody, 240, c, 1)
+	local treeSection = treeBody.Parent
+	local details = addSection("details", "Details", 3)
 	local detailsBox = widgets.scroller(details, DETAILS_HEIGHT, c, 1)
-	local problems, problemsHeading = widgets.section(content, "Problems", c, 4)
+	local problems, problemsHeading = addSection("problems", "Problems", 4)
 	local problemsBox = widgets.scroller(problems, PROBLEMS_HEIGHT, c, 1)
-	local edit = widgets.section(content, "Edit (acts on the Explorer selection)", c, 5)
+	local edit = addSection("edit", "Edit (acts on the Explorer selection)", 5)
 	local editRows = widgets.stack(edit, 1)
-	local previewSection = widgets.section(content, "Preview", c, 6)
+	local previewSection = addSection("preview", "Preview", 6)
 	local previewInputs = widgets.row(previewSection, 1)
 	local previewButtons = widgets.row(previewSection, 2)
 	local previewStats = widgets.paragraph(previewSection, "", c, 3)
-	local view = widgets.section(content, "View", c, 7)
+	local view = addSection("view", "View", 7)
 	local viewToggles = widgets.row(view, 1)
 	local engineRow = widgets.row(view, 2)
 	local engineStatus = widgets.paragraph(view, "", c, 3)
 
-	-- Layout: the tree takes the height left over by the other sections.
+	-- Layout: the tree takes the height left over by the other sections, down to
+	-- a minimum; past that the panel itself scrolls.
 	local function relayout()
 		local used = 0
 		for _, child in content:GetChildren() do
-			if child:IsA("GuiObject") and child ~= treeBox then
+			if child:IsA("GuiObject") and child ~= treeSection then
 				used += child.AbsoluteSize.Y + 4
 			end
 		end
-		local height = math.max(MIN_TREE, widget.AbsoluteSize.Y - used - 12)
+		local height = math.max(MIN_TREE, widget.AbsoluteSize.Y - used - widgets.SECTION_CHROME - 12)
 		treeBox.Size = UDim2.new(1, 0, 0, height)
 	end
 	m:give(widget:GetPropertyChangedSignal("AbsoluteSize"):Connect(relayout))
+	-- Sections change height when collapsed, expanded or refilled.
+	m:give(contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(relayout))
 
 	-- Inputs created once -----------------------------------------------------------
 
@@ -241,6 +262,8 @@ local function mount(widget: DockWidgetPluginGui, s: session): panel
 			if s.state.choosing then
 				sessionModule.stopChoosing(s)
 			else
+				-- The chooser is shown in the tree's section.
+				setTreeCollapsed(false)
 				sessionModule.startChoosing(s)
 			end
 		end)

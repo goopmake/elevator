@@ -26,6 +26,8 @@ export type values = {
 	roots: { [string]: path },
 	-- Most recently opened roots, newest first, per place key.
 	recent: { [string]: { path } },
+	-- Panel sections the user has collapsed, by section id.
+	collapsed: { [string]: boolean },
 }
 
 local KEY = "FloorBuilder.Settings.v1"
@@ -47,6 +49,7 @@ local function defaults(): values
 		offset = { 0, 0, 0 },
 		roots = {},
 		recent = {},
+		collapsed = {},
 	}
 end
 
@@ -144,6 +147,15 @@ local function sanitize(raw: unknown): values
 					end
 				end
 				result.recent[key] = paths
+			end
+		end
+	end
+
+	local collapsed = t.collapsed
+	if type(collapsed) == "table" then
+		for key, value in collapsed :: { [unknown]: unknown } do
+			if type(key) == "string" and value == true then
+				result.collapsed[key] = true
 			end
 		end
 	end

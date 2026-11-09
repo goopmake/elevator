@@ -11,6 +11,10 @@ export type colors = theme.panel
 local ROW = 20
 local FONT = Enum.Font.SourceSans
 local MONO = Enum.Font.Code
+local SECTION_PADDING = 4
+local SECTION_GAP = 3
+-- Height an expanded section adds around its body: header, gap, padding.
+local SECTION_CHROME = ROW + SECTION_GAP + 2 * SECTION_PADDING
 
 local function list(parent: Instance, horizontal: boolean, padding: number): UIListLayout
 	local layout = Instance.new("UIListLayout")
@@ -138,20 +142,74 @@ local function input(parent: Instance, text: string, width: number, c: colors, o
 	return box
 end
 
--- A titled section with a background. Returns the frame and its heading.
-local function section(parent: Instance, title: string, c: colors, order: number): (Frame, TextLabel)
+-- A titled, collapsible section with a background. Clicking the header (which
+-- shows an arrow at its top right) hides or shows the body; `onToggle` is told
+-- the new state. Returns the body to fill, the heading, and a function that
+-- sets the collapsed state from code.
+local function section(
+	parent: Instance,
+	title: string,
+	c: colors,
+	order: number,
+	collapsed: boolean?,
+	onToggle: ((collapsed: boolean) -> ())?
+): (Frame, TextLabel, (collapsed: boolean) -> ())
 	local frame = Instance.new("Frame")
 	frame.BackgroundColor3 = c.section
 	frame.BorderSizePixel = 0
 	frame.Size = UDim2.new(1, 0, 0, 0)
 	frame.AutomaticSize = Enum.AutomaticSize.Y
 	frame.LayoutOrder = order
-	pad(frame, 4)
-	list(frame, false, 3)
-	local heading = label(frame, title, c, 0, c.dim)
+	pad(frame, SECTION_PADDING)
+	list(frame, false, SECTION_GAP)
+
+	local header = Instance.new("TextButton")
+	header.Name = "Header"
+	header.AutoButtonColor = false
+	header.BackgroundTransparency = 1
+	header.Size = UDim2.new(1, 0, 0, ROW)
+	header.Text = ""
+	header.LayoutOrder = 0
+	header.Parent = frame
+
+	local heading = label(header, title, c, 0, c.dim)
 	heading.Font = Enum.Font.SourceSansBold
+	heading.AutomaticSize = Enum.AutomaticSize.None
+	heading.Size = UDim2.new(1, -ROW, 0, ROW)
+	heading.TextTruncate = Enum.TextTruncate.AtEnd
+
+	-- One glyph, rotated: U+25B6 can render as an emoji, U+25BC does not.
+	local arrow = label(header, "\u{25BC}", c, 0, c.dim)
+	arrow.AutomaticSize = Enum.AutomaticSize.None
+	arrow.AnchorPoint = Vector2.new(1, 0)
+	arrow.Position = UDim2.fromScale(1, 0)
+	arrow.Size = UDim2.fromOffset(ROW, ROW)
+	arrow.TextSize = 12
+	arrow.TextXAlignment = Enum.TextXAlignment.Center
+
+	local body = stack(frame, 1, SECTION_GAP)
+
+	local isCollapsed = collapsed == true
+	local function show()
+		body.Visible = not isCollapsed
+		arrow.Rotation = if isCollapsed then -90 else 0
+	end
+	local function setCollapsed(value: boolean)
+		if value ~= isCollapsed then
+			isCollapsed = value
+			show()
+			if onToggle then
+				onToggle(value)
+			end
+		end
+	end
+	show()
+	header.Activated:Connect(function()
+		setCollapsed(not isCollapsed)
+	end)
+
 	frame.Parent = parent
-	return frame, heading
+	return body, heading, setCollapsed
 end
 
 local function scroller(parent: Instance, height: number, c: colors, order: number): ScrollingFrame
@@ -178,6 +236,7 @@ return table.freeze({
 	ROW = ROW,
 	FONT = FONT,
 	MONO = MONO,
+	SECTION_CHROME = SECTION_CHROME,
 	list = list,
 	pad = pad,
 	stack = stack,
